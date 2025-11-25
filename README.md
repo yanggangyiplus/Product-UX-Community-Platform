@@ -55,18 +55,22 @@
 ### Database
 - MySQL 또는 PostgreSQL
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 Product-UX-Community-Platform/
 ├── frontend/                 # React 프론트엔드
 │   ├── src/
+│   │   ├── config/          # 환경 변수 설정
+│   │   └── ...
 │   ├── public/
 │   ├── package.json
-│   └── vite.config.js
+│   ├── vite.config.js
+│   └── .env.example         # 환경 변수 예제
 ├── backend/                  # Flask 백엔드
 │   ├── app.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── .env.example         # 환경 변수 예제
 ├── docs/                     # 프로젝트 문서
 │   ├── requirements/         # 요구사항정의서 (REQ-001 ~)
 │   ├── function-spec/        # 기능명세(FUNC-001 ~)
@@ -111,7 +115,50 @@ python app.py
 
 ### 환경 변수 설정
 
-백엔드 환경 변수는 `backend/.env.example` 파일을 참조하여 `.env` 파일을 생성하세요.
+#### Backend 환경 변수
+
+1. `backend/.env.example` 파일을 복사하여 `backend/.env` 파일을 생성합니다.
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+2. `.env` 파일을 열어 실제 값으로 수정합니다:
+
+```env
+# 데이터베이스 설정
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=community_platform
+
+# JWT 설정 (프로덕션에서는 반드시 변경)
+JWT_SECRET_KEY=your_secure_secret_key_here
+
+# OAuth 설정 (각 소셜 로그인 플랫폼에서 발급받은 값으로 변경)
+KAKAO_CLIENT_ID=your_kakao_client_id
+KAKAO_CLIENT_SECRET=your_kakao_client_secret
+# ... 기타 설정
+```
+
+#### Frontend 환경 변수
+
+1. `frontend/.env.example` 파일을 복사하여 `frontend/.env` 파일을 생성합니다.
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+2. 필요시 `.env` 파일의 값을 수정합니다 (기본값으로도 동작합니다):
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+**참고**: Vite에서는 환경 변수에 `VITE_` 접두사가 있어야 클라이언트 코드에서 접근할 수 있습니다.
 
 ## 정보구조(IA)
 
