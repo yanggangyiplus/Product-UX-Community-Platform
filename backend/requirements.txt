@@ -5,7 +5,7 @@ flask-cors==4.0.0
 # 데이터베이스
 sqlalchemy==2.0.23
 pymysql==1.1.0
-psycopg2-binary==2.9.9
+# psycopg2-binary==2.9.9
 
 # 인증 및 보안
 pyjwt==2.8.0
