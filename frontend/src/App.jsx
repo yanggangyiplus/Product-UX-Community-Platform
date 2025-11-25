@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import Login from './pages/Login'
+import OAuthCallback from './pages/OAuthCallback'
 import './App.css'
 
 /**
@@ -11,7 +13,8 @@ function App() {
       <div className="App">
         <Routes>
           <Route path="/" element={<div>Home</div>} />
-          <Route path="/login" element={<div>Login</div>} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<OAuthCallback />} />
           <Route path="/board" element={<div>Board</div>} />
         </Routes>
       </div>
