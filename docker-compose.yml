@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # MySQL 데이터베이스
+  db:
+    image: mysql:8.0
+    container_name: community_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-community_platform}
+      MYSQL_USER: ${DB_USER:-community_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-userpassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - community_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: community_backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-community_user}
+      DB_PASSWORD: ${DB_PASSWORD:-userpassword}
+      DB_NAME: ${DB_NAME:-community_platform}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-here}
+      FLASK_DEBUG: "False"
+      FLASK_PORT: 8000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+    networks:
+      - community_network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: community_frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - community_network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  backend_logs:
+
+networks:
+  community_network:
+    driver: bridge

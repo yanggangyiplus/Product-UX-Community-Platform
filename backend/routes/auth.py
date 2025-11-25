@@ -1,8 +1,8 @@
 """
 인증 관련 API 라우트
-/login, /callback 엔드포인트 포함
+/login, /register, /callback 엔드포인트 포함
 """
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify, redirect, current_app
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import User, OAuthAccount, OAuthProvider, UserRole
@@ -12,40 +12,42 @@ from utils.oauth import (
     get_kakao_token, get_naver_token, get_google_token,
     get_kakao_user_info, get_naver_user_info, get_google_user_info
 )
-import hashlib
+from utils.validators import validate_request, LoginSchema, RegisterSchema
+from utils.errors import AuthenticationError, ValidationError, APIError
+import bcrypt
 import secrets
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 
 @auth_bp.route('/login', methods=['POST'])
+@validate_request(LoginSchema)
 def login():
     """일반 로그인 (이메일/비밀번호)"""
-    data = request.get_json()
+    data = request.validated_data
     email = data.get('email')
     password = data.get('password')
-    
-    if not email or not password:
-        return jsonify({'error': '이메일과 비밀번호를 입력해주세요.'}), 400
-    
+
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
-        
+
         if not user or not user.password_hash:
-            return jsonify({'error': '이메일 또는 비밀번호가 올바르지 않습니다.'}), 401
-        
-        # 비밀번호 검증 (실제 구현 시 bcrypt 등 사용)
-        # 여기서는 간단히 해시 비교
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        if user.password_hash != password_hash:
-            return jsonify({'error': '이메일 또는 비밀번호가 올바르지 않습니다.'}), 401
-        
+            current_app.logger.warning(f'로그인 실패: 사용자를 찾을 수 없음 - {email}')
+            raise AuthenticationError('이메일 또는 비밀번호가 올바르지 않습니다')
+
+        # bcrypt를 사용한 비밀번호 검증
+        if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            current_app.logger.warning(f'로그인 실패: 비밀번호 불일치 - {email}')
+            raise AuthenticationError('이메일 또는 비밀번호가 올바르지 않습니다')
+
         if not user.is_active:
-            return jsonify({'error': '비활성화된 계정입니다.'}), 403
-        
+            current_app.logger.warning(f'로그인 실패: 비활성화된 계정 - {email}')
+            raise APIError('비활성화된 계정입니다', status_code=403)
+
         token = generate_token(user.id, user.role)
-        
+        current_app.logger.info(f'로그인 성공: {email}')
+
         return jsonify({
             'token': token,
             'user': {
@@ -55,6 +57,73 @@ def login():
                 'role': user.role.value
             }
         }), 200
+    except (AuthenticationError, APIError):
+        raise
+    except Exception as e:
+        current_app.logger.error(f'로그인 중 오류 발생: {str(e)}', exc_info=True)
+        raise APIError('로그인 처리 중 오류가 발생했습니다', status_code=500)
+    finally:
+        db.close()
+
+
+@auth_bp.route('/register', methods=['POST'])
+@validate_request(RegisterSchema)
+def register():
+    """회원가입 (이메일/비밀번호)"""
+    data = request.validated_data
+    email = data.get('email')
+    password = data.get('password')
+    nickname = data.get('nickname')
+
+    db = SessionLocal()
+    try:
+        # 이메일 중복 확인
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            raise ValidationError('이미 사용 중인 이메일입니다')
+
+        # 닉네임 중복 확인
+        existing_nickname = db.query(User).filter(User.nickname == nickname).first()
+        if existing_nickname:
+            raise ValidationError('이미 사용 중인 닉네임입니다')
+
+        # bcrypt를 사용한 비밀번호 해싱
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        # 사용자 생성
+        user = User(
+            email=email,
+            password_hash=password_hash.decode('utf-8'),
+            nickname=nickname,
+            role=UserRole.USER,
+            is_active=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        current_app.logger.info(f'회원가입 성공: {email}')
+
+        # 자동 로그인 (토큰 생성)
+        token = generate_token(user.id, user.role)
+
+        return jsonify({
+            'message': '회원가입이 완료되었습니다',
+            'token': token,
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'nickname': user.nickname,
+                'role': user.role.value
+            }
+        }), 201
+    except (ValidationError, APIError):
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f'회원가입 중 오류 발생: {str(e)}', exc_info=True)
+        raise APIError('회원가입 처리 중 오류가 발생했습니다', status_code=500)
     finally:
         db.close()
 

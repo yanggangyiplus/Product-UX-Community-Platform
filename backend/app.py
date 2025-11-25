@@ -6,6 +6,8 @@ import os
 
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
 # 환경 변수 로드
@@ -20,7 +22,7 @@ def create_app() -> Flask:
         "CORS_ORIGINS",
         "http://localhost:3000,http://localhost:5173",
     ).split(",")
-    CORS(app, origins=cors_origins)
+    CORS(app, origins=cors_origins, supports_credentials=True)
 
     # 환경 변수에서 설정값 가져오기
     app.config["DEBUG"] = os.getenv("FLASK_DEBUG", "True").lower() == "true"
@@ -56,6 +58,24 @@ def create_app() -> Flask:
     app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET", "")
     app.config["GOOGLE_REDIRECT_URI"] = os.getenv("GOOGLE_REDIRECT_URI", "")
 
+    # Rate Limiting 설정
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["200 per day", "50 per hour"],
+        storage_uri="memory://"
+    )
+
+    # 로깅 설정
+    from utils.logger import setup_logging
+    setup_logging(app)
+
+    # 에러 핸들러 등록
+    from utils.errors import register_error_handlers
+    register_error_handlers(app)
+
+    app.logger.info('애플리케이션이 시작되었습니다')
+
     # Blueprint import
     from routes.auth import auth_bp
     from routes.posts import posts_bp
@@ -69,6 +89,9 @@ def create_app() -> Flask:
     app.register_blueprint(comments_bp, url_prefix="/api/comments")
     app.register_blueprint(reports_bp, url_prefix="/api/reports")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+
+    # Rate Limiting 적용 (인증 관련 엔드포인트)
+    limiter.limit("5 per minute")(auth_bp)
 
     # 헬스 체크 (루트)
     @app.route("/")

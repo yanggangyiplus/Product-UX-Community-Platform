@@ -3,29 +3,31 @@
 """
 from database import SessionLocal, init_db
 from models import User, Post, Category, UserRole, PostStatus
-import hashlib
+import bcrypt
 from datetime import datetime
 
 def create_test_data():
     """테스트 데이터 생성"""
     init_db()
     db = SessionLocal()
-    
+
     try:
-        # 테스트 사용자 생성
+        # 테스트 사용자 생성 (bcrypt 사용)
+        user_password = bcrypt.hashpw("password123".encode('utf-8'), bcrypt.gensalt())
         user = User(
             email="test@example.com",
-            password_hash=hashlib.sha256("password123".encode()).hexdigest(),
+            password_hash=user_password.decode('utf-8'),
             nickname="테스트 사용자",
             role=UserRole.USER,
             is_active=True
         )
         db.add(user)
-        
-        # 관리자 사용자 생성
+
+        # 관리자 사용자 생성 (bcrypt 사용)
+        admin_password = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt())
         admin = User(
             email="admin@example.com",
-            password_hash=hashlib.sha256("admin123".encode()).hexdigest(),
+            password_hash=admin_password.decode('utf-8'),
             nickname="관리자",
             role=UserRole.ADMIN,
             is_active=True
