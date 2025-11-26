@@ -1,20 +1,14 @@
 """
-데이터베이스 연결 및 초기화 모듈 (SQLite)
+데이터베이스 연결 및 초기화 모듈 (SQLite 버전)
 """
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from models import Base
 
-# SQLite 사용 (파일 기반 - MySQL 없이 작동)
-DATABASE_PATH = os.path.join(os.path.dirname(__file__), 'community_platform.db')
-DATABASE_URL = f'sqlite:///{DATABASE_PATH}'
-
-# 데이터베이스 엔진 생성
+# SQLite 사용 (파일 기반)
 engine = create_engine(
-    DATABASE_URL,
+    'sqlite:///community_platform.db',
     pool_pre_ping=True,
-    connect_args={"check_same_thread": False},  # SQLite용 설정
     echo=False
 )
 
@@ -33,4 +27,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

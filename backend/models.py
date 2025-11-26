@@ -63,8 +63,8 @@ class User(Base):
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
-    reports = relationship("Report", back_populates="reporter", cascade="all, delete-orphan")
-    likes = relationship("PostLike", back_populates="user", cascade="all, delete-orphan")
+    reports = relationship("Report", foreign_keys="Report.reporter_id", back_populates="reporter", cascade="all, delete-orphan")
+    likes = relationship("PostLike", foreign_keys="PostLike.user_id", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, nickname={self.nickname})>"
